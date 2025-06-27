@@ -1,0 +1,5 @@
+{
+  "name": "Sales Commission Tracker",
+  "description": "An application to manage and track commission payments for a sales team, including a configurable performance-based bonus (rappel) system.",
+  "requestFramePermissions": []
+}
