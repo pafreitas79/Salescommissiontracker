@@ -1,8 +1,9 @@
-
 export enum PaymentStatus {
     Paid = 'Paid',
     Unpaid = 'Unpaid',
 }
+
+export type RappelCalculationMethod = 'rolling' | 'ytd';
 
 export interface Salesperson {
     id: string;
@@ -20,6 +21,7 @@ export interface Commission {
     paymentDate?: string;
     isAdvance: boolean;
     entryDate: string;
+    rappelBonus: number;
 }
 
 export interface RappelTier {

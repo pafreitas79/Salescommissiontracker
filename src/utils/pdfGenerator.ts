@@ -36,6 +36,12 @@ export const generateInvoicePdf = (salesData: SalesData) => {
     const today = new Date().toISOString().split('T')[0];
 
     const unpaidCommissions = salesData.commissionHistory.filter(c => c.status === PaymentStatus.Unpaid);
+    
+    // Calculate total base commissions and rappel bonuses for unpaid items ONLY
+    const totalUnpaidBaseCommissions = unpaidCommissions.reduce((sum, c) => sum + (c.revenue * (c.commissionRate / 100)), 0);
+    const totalUnpaidRappelBonus = unpaidCommissions.reduce((sum, c) => sum + (c.rappelBonus || 0), 0);
+    const totalDue = totalUnpaidBaseCommissions + totalUnpaidRappelBonus;
+
 
     doc.setFontSize(12);
     doc.text('Bill To:', 14, 40);
@@ -45,15 +51,21 @@ export const generateInvoicePdf = (salesData: SalesData) => {
     doc.text(`Invoice #: INV-${Date.now()}`, 196, 40, { align: 'right' });
     doc.text(`Date: ${today}`, 196, 46, { align: 'right' });
 
-    const tableColumn = ["Entry Date", "Revenue", "Commission Rate", "Amount"];
+    const tableColumn = ["Entry Date", "Revenue", "Base Commission", "Rappel Bonus", "Line Total"];
     const tableRows: (string|number)[][] = [];
 
     unpaidCommissions.forEach(c => {
-        const commissionAmount = c.revenue * (c.commissionRate / 100);
-        tableRows.push([c.entryDate, formatCurrency(c.revenue), `${c.commissionRate}%`, formatCurrency(commissionAmount)]);
+        const baseCommission = c.revenue * (c.commissionRate / 100);
+        const rappelBonus = c.rappelBonus || 0;
+        const lineTotal = baseCommission + rappelBonus;
+        tableRows.push([
+            c.entryDate, 
+            formatCurrency(c.revenue), 
+            `${formatCurrency(baseCommission)} (${c.commissionRate}%)`,
+            formatCurrency(rappelBonus),
+            formatCurrency(lineTotal)
+        ]);
     });
-
-    const baseCommissionsSubtotal = unpaidCommissions.reduce((sum, c) => sum + (c.revenue * (c.commissionRate / 100)), 0);
 
     doc.autoTable({
         startY: 60,
@@ -66,12 +78,12 @@ export const generateInvoicePdf = (salesData: SalesData) => {
     let finalY = (doc as any).lastAutoTable.finalY || 80;
     
     doc.setFontSize(10);
-    doc.text(`Base Commissions Subtotal: ${formatCurrency(baseCommissionsSubtotal)}`, 196, finalY + 10, { align: 'right' });
-    doc.text(`Rappel Bonus (Last 12mo): ${formatCurrency(salesData.rappelBonus)}`, 196, finalY + 16, { align: 'right' });
+    doc.text(`Base Commissions Subtotal: ${formatCurrency(totalUnpaidBaseCommissions)}`, 196, finalY + 10, { align: 'right' });
+    doc.text(`Rappel Bonuses Subtotal: ${formatCurrency(totalUnpaidRappelBonus)}`, 196, finalY + 16, { align: 'right' });
 
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text(`Total Due: ${formatCurrency(salesData.balance)}`, 196, finalY + 24, { align: 'right' });
+    doc.text(`Total Due: ${formatCurrency(totalDue)}`, 196, finalY + 24, { align: 'right' });
 
     addHeaderFooter(doc, 'Commission Invoice');
     doc.save(`Invoice-${salesData.name.replace(' ', '_')}-${today}.pdf`);
@@ -80,7 +92,9 @@ export const generateInvoicePdf = (salesData: SalesData) => {
 export const generateReceiptPdf = (commission: Commission, salesperson: Salesperson) => {
     const doc = new jsPDF() as jsPDFWithAutoTable;
     const today = new Date().toISOString().split('T')[0];
-    const commissionAmount = commission.revenue * (commission.commissionRate / 100);
+    const baseCommission = commission.revenue * (commission.commissionRate / 100);
+    const rappelBonus = commission.rappelBonus || 0;
+    const totalPaid = baseCommission + rappelBonus;
     
     doc.setFontSize(12);
     doc.text('Paid To:', 14, 40);
@@ -94,7 +108,8 @@ export const generateReceiptPdf = (commission: Commission, salesperson: Salesper
         startY: 60,
         head: [["Description", "Amount"]],
         body: [
-            ['Commission for revenue of ' + formatCurrency(commission.revenue), formatCurrency(commissionAmount)],
+            [`Base Commission for revenue of ${formatCurrency(commission.revenue)} (${commission.commissionRate}%)`, formatCurrency(baseCommission)],
+            ['Applicable Rappel Bonus', formatCurrency(rappelBonus)],
         ],
         theme: 'striped',
         headStyles: { fillColor: [22, 160, 133] },
@@ -104,7 +119,7 @@ export const generateReceiptPdf = (commission: Commission, salesperson: Salesper
 
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text(`Total Paid: ${formatCurrency(commissionAmount)}`, 196, finalY + 10, { align: 'right' });
+    doc.text(`Total Paid: ${formatCurrency(totalPaid)}`, 196, finalY + 10, { align: 'right' });
 
     addHeaderFooter(doc, 'Payment Receipt');
     doc.save(`Receipt-${commission.id}-${today}.pdf`);

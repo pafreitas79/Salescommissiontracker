@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Commission, Salesperson, PaymentStatus } from '../types';
 import { Card } from './ui/Card';
@@ -12,9 +11,12 @@ import { generateReceiptPdf } from '../utils/pdfGenerator';
 interface CommissionsProps {
     commissions: Commission[];
     salespeople: Salesperson[];
-    onAddCommission: (commission: Omit<Commission, 'id'>) => void;
+    onAddCommission: (commission: Omit<Commission, 'id' | 'rappelBonus'>) => void;
     onUpdateCommission: (commission: Commission) => void;
 }
+
+const formatCurrency = (amount: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+
 
 const CommissionForm: React.FC<{ salespeople: Salesperson[]; onAdd: (data: any) => void; onClose: () => void }> = ({ salespeople, onAdd, onClose }) => {
     const [formData, setFormData] = useState({
@@ -60,7 +62,7 @@ const CommissionForm: React.FC<{ salespeople: Salesperson[]; onAdd: (data: any) 
             <Input label="Revenue Generated" name="revenue" type="number" value={formData.revenue} onChange={handleChange} required />
              <div className="pt-2">
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Commission Rate: 
+                    Base Commission Rate: 
                     <span className="font-semibold"> {selectedSalespersonRate !== null ? `${selectedSalespersonRate}%` : 'N/A (Select a salesperson)'}</span>
                 </p>
             </div>
@@ -117,9 +119,10 @@ const Commissions: React.FC<CommissionsProps> = ({ commissions, salespeople, onA
                                 <th scope="col" className="px-6 py-3">Salesperson</th>
                                 <th scope="col" className="px-6 py-3">Entry Date</th>
                                 <th scope="col" className="px-6 py-3">Revenue</th>
-                                <th scope="col" className="px-6 py-3">Commission</th>
+                                <th scope="col" className="px-6 py-3">Base Commission</th>
+                                <th scope="col" className="px-6 py-3">Rappel Bonus</th>
+                                <th scope="col" className="px-6 py-3">Total</th>
                                 <th scope="col" className="px-6 py-3">Status</th>
-                                <th scope="col" className="px-6 py-3">Payment Date</th>
                                 <th scope="col" className="px-6 py-3">Actions</th>
                             </tr>
                         </thead>
@@ -127,16 +130,19 @@ const Commissions: React.FC<CommissionsProps> = ({ commissions, salespeople, onA
                             {filteredCommissions.length > 0 ? (
                                 filteredCommissions.map(c => {
                                     const salesperson = getSalesperson(c.salespersonId);
+                                    const baseCommission = c.revenue * (c.commissionRate / 100);
+                                    const total = baseCommission + c.rappelBonus;
                                     return (
                                         <tr key={c.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
                                             <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{salesperson?.name || 'N/A'}</td>
                                             <td className="px-6 py-4">{c.entryDate}</td>
-                                            <td className="px-6 py-4">{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(c.revenue)}</td>
-                                            <td className="px-6 py-4">{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(c.revenue * (c.commissionRate / 100))} ({c.commissionRate}%)</td>
+                                            <td className="px-6 py-4">{formatCurrency(c.revenue)}</td>
+                                            <td className="px-6 py-4">{formatCurrency(baseCommission)} ({c.commissionRate}%)</td>
+                                            <td className="px-6 py-4 text-green-500">{formatCurrency(c.rappelBonus)}</td>
+                                            <td className="px-6 py-4 font-bold">{formatCurrency(total)}</td>
                                             <td className="px-6 py-4">
                                                 <span className={`px-2 py-1 rounded-full text-xs font-semibold ${c.status === PaymentStatus.Paid ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'}`}>{c.status}</span>
                                             </td>
-                                            <td className="px-6 py-4">{c.paymentDate || 'N/A'}</td>
                                             <td className="px-6 py-4 flex items-center space-x-2">
                                                 <Button
                                                     size="sm"
@@ -157,7 +163,7 @@ const Commissions: React.FC<CommissionsProps> = ({ commissions, salespeople, onA
                                 })
                             ) : (
                                 <tr>
-                                    <td colSpan={7} className="text-center py-8 text-gray-500 dark:text-gray-400">
+                                    <td colSpan={8} className="text-center py-8 text-gray-500 dark:text-gray-400">
                                         No commissions found. Add one to get started!
                                     </td>
                                 </tr>

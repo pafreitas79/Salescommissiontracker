@@ -1,7 +1,6 @@
-
-import React, { useState, useMemo, useEffect } from 'react';
-import { Salesperson, Commission, RappelTier, PaymentStatus } from './types';
-import { INITIAL_SALESPEOPLE, INITIAL_COMMISSIONS, INITIAL_RAPPEL_TIERS } from './constants';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { Salesperson, Commission, RappelTier, PaymentStatus, RappelCalculationMethod } from './types';
+import { INITIAL_RAPPEL_TIERS } from './constants';
 import Dashboard from './components/Dashboard';
 import Commissions from './components/Commissions';
 import RappelSettings from './components/RappelSettings';
@@ -14,17 +13,17 @@ const App: React.FC = () => {
     const [salespeople, setSalespeople] = useState<Salesperson[]>(() => {
         try {
             const saved = localStorage.getItem('salespeople');
-            return saved ? JSON.parse(saved) : INITIAL_SALESPEOPLE;
+            return saved ? JSON.parse(saved) : [];
         } catch {
-            return INITIAL_SALESPEOPLE;
+            return [];
         }
     });
     const [commissions, setCommissions] = useState<Commission[]>(() => {
         try {
             const saved = localStorage.getItem('commissions');
-            return saved ? JSON.parse(saved) : INITIAL_COMMISSIONS;
+            return saved ? JSON.parse(saved) : [];
         } catch {
-            return INITIAL_COMMISSIONS;
+            return [];
         }
     });
     const [rappelTiers, setRappelTiers] = useState<RappelTier[]>(() => {
@@ -35,7 +34,64 @@ const App: React.FC = () => {
             return INITIAL_RAPPEL_TIERS;
         }
     });
+    const [rappelMethod, setRappelMethod] = useState<RappelCalculationMethod>(() => {
+        try {
+            const saved = localStorage.getItem('rappelMethod');
+            return saved ? JSON.parse(saved) : 'rolling';
+        } catch {
+            return 'rolling';
+        }
+    });
     const [activeTab, setActiveTab] = useState<Tab>('dashboard');
+
+    const recalculateAllCommissions = useCallback((
+        currentCommissions: Commission[],
+        currentTiers: RappelTier[],
+        currentMethod: RappelCalculationMethod
+    ): Commission[] => {
+        const sortedTiers = [...currentTiers].sort((a, b) => b.threshold - a.threshold);
+        
+        const commissionsBySalesperson: { [key: string]: Commission[] } = {};
+        currentCommissions.forEach(c => {
+            if (!commissionsBySalesperson[c.salespersonId]) {
+                commissionsBySalesperson[c.salespersonId] = [];
+            }
+            commissionsBySalesperson[c.salespersonId].push(c);
+        });
+
+        const newCommissions: Commission[] = [];
+
+        Object.values(commissionsBySalesperson).forEach(personCommissions => {
+            const sortedPersonCommissions = [...personCommissions].sort((a, b) => new Date(a.entryDate).getTime() - new Date(b.entryDate).getTime());
+            
+            sortedPersonCommissions.forEach((commission, index) => {
+                const entryDate = new Date(commission.entryDate);
+                let performanceRevenue = 0;
+
+                const historicalCommissions = sortedPersonCommissions.slice(0, index);
+
+                if (currentMethod === 'rolling') {
+                    const twelveMonthsAgo = new Date(entryDate);
+                    twelveMonthsAgo.setFullYear(twelveMonthsAgo.getFullYear() - 1);
+                    performanceRevenue = historicalCommissions
+                        .filter(c => new Date(c.entryDate) >= twelveMonthsAgo)
+                        .reduce((sum, c) => sum + c.revenue, 0);
+                } else { // ytd
+                    const startOfYear = new Date(entryDate.getFullYear(), 0, 1);
+                     performanceRevenue = historicalCommissions
+                        .filter(c => new Date(c.entryDate) >= startOfYear)
+                        .reduce((sum, c) => sum + c.revenue, 0);
+                }
+
+                const applicableRappel = sortedTiers.find(tier => performanceRevenue >= tier.threshold);
+                const rappelBonus = applicableRappel ? commission.revenue * (applicableRappel.bonusPercentage / 100) : 0;
+                
+                newCommissions.push({ ...commission, rappelBonus });
+            });
+        });
+
+        return newCommissions;
+    }, []);
 
     useEffect(() => {
         localStorage.setItem('salespeople', JSON.stringify(salespeople));
@@ -47,10 +103,17 @@ const App: React.FC = () => {
 
     useEffect(() => {
         localStorage.setItem('rappelTiers', JSON.stringify(rappelTiers));
-    }, [rappelTiers]);
+        setCommissions(prev => recalculateAllCommissions(prev, rappelTiers, rappelMethod));
+    }, [rappelTiers, rappelMethod, recalculateAllCommissions]);
+    
+    useEffect(() => {
+        localStorage.setItem('rappelMethod', JSON.stringify(rappelMethod));
+    }, [rappelMethod]);
 
-    const handleAddCommission = (commission: Omit<Commission, 'id'>) => {
-        setCommissions(prev => [...prev, { ...commission, id: `comm-${Date.now()}` }]);
+    const handleAddCommission = (commission: Omit<Commission, 'id' | 'rappelBonus'>) => {
+        const newCommission = { ...commission, id: `comm-${Date.now()}`, rappelBonus: 0 };
+        const updatedCommissions = [...commissions, newCommission];
+        setCommissions(recalculateAllCommissions(updatedCommissions, rappelTiers, rappelMethod));
     };
 
     const handleUpdateCommission = (updatedCommission: Commission) => {
@@ -59,6 +122,10 @@ const App: React.FC = () => {
 
     const handleUpdateRappelTiers = (tiers: RappelTier[]) => {
         setRappelTiers(tiers);
+    };
+    
+    const handleUpdateRappelMethod = (method: RappelCalculationMethod) => {
+        setRappelMethod(method);
     };
 
     const handleAddSalesperson = (person: Omit<Salesperson, 'id'>) => {
@@ -79,57 +146,43 @@ const App: React.FC = () => {
     
     const handleClearData = () => {
         if (window.confirm('Are you sure you want to delete all data? This action cannot be undone.')) {
-            localStorage.removeItem('salespeople');
-            localStorage.removeItem('commissions');
-            localStorage.removeItem('rappelTiers');
+            localStorage.clear();
             window.location.reload();
         }
     };
 
-
     const salesData = useMemo(() => {
-        const today = new Date();
-        const twelveMonthsAgo = new Date();
-        twelveMonthsAgo.setFullYear(today.getFullYear() - 1);
-
         return salespeople.map(sp => {
             const personCommissions = commissions.filter(c => c.salespersonId === sp.id);
             const totalRevenue = personCommissions.reduce((sum, c) => sum + c.revenue, 0);
-            
-            // Calculate revenue in the last 12 months for rappel
-            const commissionsLast12Months = personCommissions.filter(c => {
-                const entryDate = new Date(c.entryDate);
-                return entryDate >= twelveMonthsAgo && entryDate <= today;
-            });
-            const revenueLast12Months = commissionsLast12Months.reduce((sum, c) => sum + c.revenue, 0);
-
-            const applicableRappel = [...rappelTiers]
-                .sort((a, b) => b.threshold - a.threshold)
-                .find(tier => revenueLast12Months >= tier.threshold);
-            
-            // Rappel bonus is based on revenue from the last 12 months
-            const rappelBonus = applicableRappel ? revenueLast12Months * (applicableRappel.bonusPercentage / 100) : 0;
-
             const baseCommissions = personCommissions.reduce((sum, c) => sum + (c.revenue * (c.commissionRate / 100)), 0);
-            const totalCommission = baseCommissions + rappelBonus;
+            const totalRappelBonus = personCommissions.reduce((sum, c) => sum + (c.rappelBonus || 0), 0);
+            const totalCommission = baseCommissions + totalRappelBonus;
 
-            const paidCommissions = personCommissions
+            const totalPaid = personCommissions
                 .filter(c => c.status === PaymentStatus.Paid)
-                .reduce((sum, c) => sum + (c.revenue * (c.commissionRate / 100)), 0);
+                .reduce((sum, c) => sum + (c.revenue * (c.commissionRate / 100)) + (c.rappelBonus || 0), 0);
+            
+            const revenueLast12Months = personCommissions.filter(c => {
+                 const entryDate = new Date(c.entryDate);
+                 const twelveMonthsAgo = new Date();
+                 twelveMonthsAgo.setFullYear(twelveMonthsAgo.getFullYear() - 1);
+                 return entryDate >= twelveMonthsAgo;
+            }).reduce((sum, c) => sum + c.revenue, 0);
 
             return {
                 ...sp,
                 totalRevenue,
-                revenueLast12Months,
+                revenueLast12Months, // Note: This is for display only, not for calculation.
                 baseCommissions,
-                rappelBonus,
+                rappelBonus: totalRappelBonus,
                 totalCommission,
-                totalPaid: paidCommissions,
-                balance: totalCommission - paidCommissions,
+                totalPaid,
+                balance: totalCommission - totalPaid,
                 commissionHistory: personCommissions,
             };
         });
-    }, [salespeople, commissions, rappelTiers]);
+    }, [salespeople, commissions]);
 
     const renderContent = () => {
         switch (activeTab) {
@@ -151,7 +204,12 @@ const App: React.FC = () => {
                             onDeleteSalesperson={handleDeleteSalesperson}
                         />;
             case 'rappel':
-                return <RappelSettings tiers={rappelTiers} onUpdateTiers={handleUpdateRappelTiers} />;
+                return <RappelSettings 
+                            tiers={rappelTiers} 
+                            method={rappelMethod}
+                            onUpdateTiers={handleUpdateRappelTiers}
+                            onUpdateMethod={handleUpdateRappelMethod} 
+                        />;
             default:
                 return null;
         }
