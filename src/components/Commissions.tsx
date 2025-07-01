@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Commission, Salesperson, PaymentStatus } from '../types';
 import { Card } from './ui/Card';
 import Button from './ui/Button';
@@ -7,6 +7,7 @@ import Input from './ui/Input';
 import Select from './ui/Select';
 import Modal from './ui/Modal';
 import { Icon } from './ui/Icon';
+import { generateReceiptPdf } from '../utils/pdfGenerator';
 
 interface CommissionsProps {
     commissions: Commission[];
@@ -24,13 +25,25 @@ const CommissionForm: React.FC<{ salespeople: Salesperson[]; onAdd: (data: any) 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
+    
+    const selectedSalespersonRate = useMemo(() => {
+        if (!formData.salespersonId) return null;
+        const selected = salespeople.find(sp => sp.id === formData.salespersonId);
+        return selected ? selected.baseCommissionRate : null;
+    }, [formData.salespersonId, salespeople]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        const selected = salespeople.find(sp => sp.id === formData.salespersonId);
+        if (!selected) {
+            alert("Please select a valid salesperson.");
+            return;
+        }
+
         onAdd({
             salespersonId: formData.salespersonId,
             revenue: parseFloat(formData.revenue),
-            commissionRate: 30, // Base commission is fixed at 30%
+            commissionRate: selected.baseCommissionRate,
             status: PaymentStatus.Unpaid,
             isAdvance: false,
             entryDate: new Date().toISOString().split('T')[0],
@@ -46,11 +59,14 @@ const CommissionForm: React.FC<{ salespeople: Salesperson[]; onAdd: (data: any) 
             </Select>
             <Input label="Revenue Generated" name="revenue" type="number" value={formData.revenue} onChange={handleChange} required />
              <div className="pt-2">
-                <p className="text-sm text-gray-600 dark:text-gray-400">Commission Rate: <span className="font-semibold">30% (fixed)</span></p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Commission Rate: 
+                    <span className="font-semibold"> {selectedSalespersonRate !== null ? `${selectedSalespersonRate}%` : 'N/A (Select a salesperson)'}</span>
+                </p>
             </div>
             <div className="flex justify-end space-x-2 pt-4">
                 <Button type="button" onClick={onClose} variant="secondary">Cancel</Button>
-                <Button type="submit">Add Commission</Button>
+                <Button type="submit" disabled={selectedSalespersonRate === null}>Add Commission</Button>
             </div>
         </form>
     );
@@ -61,7 +77,7 @@ const Commissions: React.FC<CommissionsProps> = ({ commissions, salespeople, onA
     const [isModalOpen, setIsModalOpen] = useState(false);
     
     const filteredCommissions = commissions.filter(c => filter === 'all' || c.status === filter);
-    const getSalespersonName = (id: string) => salespeople.find(sp => sp.id === id)?.name || 'N/A';
+    const getSalesperson = (id: string) => salespeople.find(sp => sp.id === id);
     
     const handleTogglePaymentStatus = (commission: Commission) => {
         const isPaid = commission.status === PaymentStatus.Paid;
@@ -76,7 +92,7 @@ const Commissions: React.FC<CommissionsProps> = ({ commissions, salespeople, onA
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h2 className="text-3xl font-bold text-gray-800 dark:text-white">Commissions</h2>
-                <Button onClick={() => setIsModalOpen(true)}>
+                <Button onClick={() => setIsModalOpen(true)} disabled={salespeople.length === 0} title={salespeople.length === 0 ? "Add a salesperson first" : "Add Commission"}>
                     <Icon.Plus className="w-5 h-5 mr-2" />
                     Add Commission
                 </Button>
@@ -109,27 +125,36 @@ const Commissions: React.FC<CommissionsProps> = ({ commissions, salespeople, onA
                         </thead>
                         <tbody>
                             {filteredCommissions.length > 0 ? (
-                                filteredCommissions.map(c => (
-                                    <tr key={c.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-                                        <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{getSalespersonName(c.salespersonId)}</td>
-                                        <td className="px-6 py-4">{c.entryDate}</td>
-                                        <td className="px-6 py-4">{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(c.revenue)}</td>
-                                        <td className="px-6 py-4">{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(c.revenue * (c.commissionRate / 100))} ({c.commissionRate}%)</td>
-                                        <td className="px-6 py-4">
-                                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${c.status === PaymentStatus.Paid ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'}`}>{c.status}</span>
-                                        </td>
-                                        <td className="px-6 py-4">{c.paymentDate || 'N/A'}</td>
-                                        <td className="px-6 py-4">
-                                            <Button
-                                                size="sm"
-                                                onClick={() => handleTogglePaymentStatus(c)}
-                                                variant={c.status === PaymentStatus.Unpaid ? 'primary' : 'secondary'}
-                                            >
-                                                {c.status === PaymentStatus.Unpaid ? 'Mark as Paid' : 'Mark as Unpaid'}
-                                            </Button>
-                                        </td>
-                                    </tr>
-                                ))
+                                filteredCommissions.map(c => {
+                                    const salesperson = getSalesperson(c.salespersonId);
+                                    return (
+                                        <tr key={c.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                                            <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{salesperson?.name || 'N/A'}</td>
+                                            <td className="px-6 py-4">{c.entryDate}</td>
+                                            <td className="px-6 py-4">{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(c.revenue)}</td>
+                                            <td className="px-6 py-4">{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(c.revenue * (c.commissionRate / 100))} ({c.commissionRate}%)</td>
+                                            <td className="px-6 py-4">
+                                                <span className={`px-2 py-1 rounded-full text-xs font-semibold ${c.status === PaymentStatus.Paid ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'}`}>{c.status}</span>
+                                            </td>
+                                            <td className="px-6 py-4">{c.paymentDate || 'N/A'}</td>
+                                            <td className="px-6 py-4 flex items-center space-x-2">
+                                                <Button
+                                                    size="sm"
+                                                    onClick={() => handleTogglePaymentStatus(c)}
+                                                    variant={c.status === PaymentStatus.Unpaid ? 'primary' : 'secondary'}
+                                                >
+                                                    {c.status === PaymentStatus.Unpaid ? 'Mark as Paid' : 'Mark as Unpaid'}
+                                                </Button>
+                                                {c.status === PaymentStatus.Paid && salesperson && (
+                                                     <Button size="sm" variant="secondary" onClick={() => generateReceiptPdf(c, salesperson)}>
+                                                        <Icon.FileText className="w-4 h-4 mr-1"/>
+                                                        Receipt
+                                                     </Button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    )
+                                })
                             ) : (
                                 <tr>
                                     <td colSpan={7} className="text-center py-8 text-gray-500 dark:text-gray-400">

@@ -41,6 +41,16 @@ const Users = (props: IconProps) => (
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-3-3h-2M9 3a4 4 0 11-8 0 4 4 0 018 0zM5 21v-2a4 4 0 014-4h2m8-3a4 4 0 100-8 4 4 0 000 8zM21 21v-2a4 4 0 00-4-4h-2" />
     </svg>
 );
+const FileText = (props: IconProps) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+);
+const Edit = (props: IconProps) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+    </svg>
+);
 
 
 export const Icon = {
@@ -55,5 +65,7 @@ export const Icon = {
     Logo,
     Check,
     Wallet,
-    Users
+    Users,
+    FileText,
+    Edit,
 };
