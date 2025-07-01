@@ -108,27 +108,35 @@ const Commissions: React.FC<CommissionsProps> = ({ commissions, salespeople, onA
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredCommissions.map(c => (
-                                <tr key={c.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-                                    <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{getSalespersonName(c.salespersonId)}</td>
-                                    <td className="px-6 py-4">{c.entryDate}</td>
-                                    <td className="px-6 py-4">{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(c.revenue)}</td>
-                                    <td className="px-6 py-4">{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(c.revenue * (c.commissionRate / 100))} ({c.commissionRate}%)</td>
-                                    <td className="px-6 py-4">
-                                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${c.status === PaymentStatus.Paid ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'}`}>{c.status}</span>
-                                    </td>
-                                    <td className="px-6 py-4">{c.paymentDate || 'N/A'}</td>
-                                    <td className="px-6 py-4">
-                                        <Button
-                                            size="sm"
-                                            onClick={() => handleTogglePaymentStatus(c)}
-                                            variant={c.status === PaymentStatus.Unpaid ? 'primary' : 'secondary'}
-                                        >
-                                            {c.status === PaymentStatus.Unpaid ? 'Mark as Paid' : 'Mark as Unpaid'}
-                                        </Button>
+                            {filteredCommissions.length > 0 ? (
+                                filteredCommissions.map(c => (
+                                    <tr key={c.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                                        <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{getSalespersonName(c.salespersonId)}</td>
+                                        <td className="px-6 py-4">{c.entryDate}</td>
+                                        <td className="px-6 py-4">{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(c.revenue)}</td>
+                                        <td className="px-6 py-4">{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(c.revenue * (c.commissionRate / 100))} ({c.commissionRate}%)</td>
+                                        <td className="px-6 py-4">
+                                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${c.status === PaymentStatus.Paid ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'}`}>{c.status}</span>
+                                        </td>
+                                        <td className="px-6 py-4">{c.paymentDate || 'N/A'}</td>
+                                        <td className="px-6 py-4">
+                                            <Button
+                                                size="sm"
+                                                onClick={() => handleTogglePaymentStatus(c)}
+                                                variant={c.status === PaymentStatus.Unpaid ? 'primary' : 'secondary'}
+                                            >
+                                                {c.status === PaymentStatus.Unpaid ? 'Mark as Paid' : 'Mark as Unpaid'}
+                                            </Button>
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={7} className="text-center py-8 text-gray-500 dark:text-gray-400">
+                                        No commissions found. Add one to get started!
                                     </td>
                                 </tr>
-                            ))}
+                            )}
                         </tbody>
                     </table>
                 </div>
