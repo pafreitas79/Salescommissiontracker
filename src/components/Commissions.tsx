@@ -7,6 +7,7 @@ import Select from './ui/Select';
 import Modal from './ui/Modal';
 import { Icon } from './ui/Icon';
 import { generateReceiptPdf } from '../utils/pdfGenerator';
+import { formatCurrency } from '../utils/formatters';
 
 interface CommissionsProps {
     commissions: Commission[];
@@ -15,13 +16,11 @@ interface CommissionsProps {
     onUpdateCommission: (commission: Commission) => void;
 }
 
-const formatCurrency = (amount: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
-
-
 const CommissionForm: React.FC<{ salespeople: Salesperson[]; onAdd: (data: any) => void; onClose: () => void }> = ({ salespeople, onAdd, onClose }) => {
     const [formData, setFormData] = useState({
         salespersonId: '',
         revenue: '',
+        dealId: '',
     });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -45,6 +44,7 @@ const CommissionForm: React.FC<{ salespeople: Salesperson[]; onAdd: (data: any) 
         onAdd({
             salespersonId: formData.salespersonId,
             revenue: parseFloat(formData.revenue),
+            dealId: formData.dealId,
             commissionRate: selected.baseCommissionRate,
             status: PaymentStatus.Unpaid,
             isAdvance: false,
@@ -60,6 +60,7 @@ const CommissionForm: React.FC<{ salespeople: Salesperson[]; onAdd: (data: any) 
                 {salespeople.map(sp => <option key={sp.id} value={sp.id}>{sp.name}</option>)}
             </Select>
             <Input label="Revenue Generated" name="revenue" type="number" value={formData.revenue} onChange={handleChange} required />
+            <Input label="Deal ID / Reference" name="dealId" type="text" value={formData.dealId} onChange={handleChange} required placeholder="e.g. INV-12345" />
              <div className="pt-2">
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                     Base Commission Rate: 
@@ -118,6 +119,7 @@ const Commissions: React.FC<CommissionsProps> = ({ commissions, salespeople, onA
                             <tr>
                                 <th scope="col" className="px-6 py-3">Salesperson</th>
                                 <th scope="col" className="px-6 py-3">Entry Date</th>
+                                <th scope="col" className="px-6 py-3">Deal ID</th>
                                 <th scope="col" className="px-6 py-3">Revenue</th>
                                 <th scope="col" className="px-6 py-3">Base Commission</th>
                                 <th scope="col" className="px-6 py-3">Rappel Bonus</th>
@@ -136,6 +138,7 @@ const Commissions: React.FC<CommissionsProps> = ({ commissions, salespeople, onA
                                         <tr key={c.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
                                             <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{salesperson?.name || 'N/A'}</td>
                                             <td className="px-6 py-4">{c.entryDate}</td>
+                                            <td className="px-6 py-4">{c.dealId}</td>
                                             <td className="px-6 py-4">{formatCurrency(c.revenue)}</td>
                                             <td className="px-6 py-4">{formatCurrency(baseCommission)} ({c.commissionRate}%)</td>
                                             <td className="px-6 py-4 text-green-500">{formatCurrency(c.rappelBonus)}</td>
@@ -163,7 +166,7 @@ const Commissions: React.FC<CommissionsProps> = ({ commissions, salespeople, onA
                                 })
                             ) : (
                                 <tr>
-                                    <td colSpan={8} className="text-center py-8 text-gray-500 dark:text-gray-400">
+                                    <td colSpan={9} className="text-center py-8 text-gray-500 dark:text-gray-400">
                                         No commissions found. Add one to get started!
                                     </td>
                                 </tr>

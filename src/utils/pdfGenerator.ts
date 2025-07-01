@@ -1,13 +1,12 @@
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { SalesData, Commission, PaymentStatus, Salesperson } from '../types';
+import { formatCurrency } from './formatters';
 
 // Extend jsPDF with autoTable
 interface jsPDFWithAutoTable extends jsPDF {
     autoTable: (options: any) => jsPDF;
 }
-
-const formatCurrency = (amount: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 
 const addHeaderFooter = (doc: jsPDF, title: string) => {
     const pageCount = (doc as any).internal.getNumberOfPages();
@@ -51,7 +50,7 @@ export const generateInvoicePdf = (salesData: SalesData) => {
     doc.text(`Invoice #: INV-${Date.now()}`, 196, 40, { align: 'right' });
     doc.text(`Date: ${today}`, 196, 46, { align: 'right' });
 
-    const tableColumn = ["Entry Date", "Revenue", "Base Commission", "Rappel Bonus", "Line Total"];
+    const tableColumn = ["Entry Date", "Deal ID", "Revenue", "Base Commission", "Rappel Bonus", "Line Total"];
     const tableRows: (string|number)[][] = [];
 
     unpaidCommissions.forEach(c => {
@@ -59,7 +58,8 @@ export const generateInvoicePdf = (salesData: SalesData) => {
         const rappelBonus = c.rappelBonus || 0;
         const lineTotal = baseCommission + rappelBonus;
         tableRows.push([
-            c.entryDate, 
+            c.entryDate,
+            c.dealId,
             formatCurrency(c.revenue), 
             `${formatCurrency(baseCommission)} (${c.commissionRate}%)`,
             formatCurrency(rappelBonus),
@@ -110,6 +110,7 @@ export const generateReceiptPdf = (commission: Commission, salesperson: Salesper
         body: [
             [`Base Commission for revenue of ${formatCurrency(commission.revenue)} (${commission.commissionRate}%)`, formatCurrency(baseCommission)],
             ['Applicable Rappel Bonus', formatCurrency(rappelBonus)],
+            ['Deal ID / Reference', commission.dealId]
         ],
         theme: 'striped',
         headStyles: { fillColor: [22, 160, 133] },

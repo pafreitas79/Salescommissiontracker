@@ -5,13 +5,12 @@ import { Icon } from './ui/Icon';
 import Modal from './ui/Modal';
 import Button from './ui/Button';
 import { generateInvoicePdf } from '../utils/pdfGenerator';
+import { formatCurrency } from '../utils/formatters';
 
 
 interface DashboardProps {
     salesData: SalesData[];
 }
-
-const formatCurrency = (amount: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 
 const SalespersonCard: React.FC<{ data: SalesData; onShowDetails: (data: SalesData) => void }> = ({ data, onShowDetails }) => {
     return (
@@ -138,6 +137,7 @@ const Dashboard: React.FC<DashboardProps> = ({ salesData }) => {
                                 <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                                     <tr>
                                         <th className="px-4 py-2">Date</th>
+                                        <th className="px-4 py-2">Deal ID</th>
                                         <th className="px-4 py-2">Revenue</th>
                                         <th className="px-4 py-2">Commission</th>
                                         <th className="px-4 py-2">Status</th>
@@ -147,6 +147,7 @@ const Dashboard: React.FC<DashboardProps> = ({ salesData }) => {
                                     {selectedSalesperson.commissionHistory.map(c => (
                                         <tr key={c.id} className="border-b dark:border-gray-700">
                                             <td className="px-4 py-2">{c.entryDate}</td>
+                                            <td className="px-4 py-2">{c.dealId}</td>
                                             <td className="px-4 py-2">{formatCurrency(c.revenue)}</td>
                                             <td className="px-4 py-2">{formatCurrency(c.revenue * (c.commissionRate / 100))}</td>
                                             <td className={`px-4 py-2 font-semibold ${c.status === 'Paid' ? 'text-green-500' : 'text-yellow-500'}`}>{c.status}</td>

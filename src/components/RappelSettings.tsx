@@ -108,7 +108,7 @@ const RappelSettings: React.FC<RappelSettingsProps> = ({ tiers, method, onUpdate
                     {editableTiers.sort((a,b) => a.threshold - b.threshold).map(tier => (
                         <div key={tier.id} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
                             <Input
-                                label="Performance Threshold ($)"
+                                label="Performance Threshold (€)"
                                 type="number"
                                 value={String(tier.threshold)}
                                 onChange={(e) => handleTierChange(tier.id, 'threshold', e.target.value)}
@@ -131,7 +131,7 @@ const RappelSettings: React.FC<RappelSettingsProps> = ({ tiers, method, onUpdate
                     <h4 className="font-semibold mb-2">Add New Tier</h4>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
                         <Input
-                            label="Performance Threshold ($)"
+                            label="Performance Threshold (€)"
                             name="threshold"
                             type="number"
                             value={newTier.threshold}

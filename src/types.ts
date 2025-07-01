@@ -16,6 +16,7 @@ export interface Commission {
     id: string;
     salespersonId: string;
     revenue: number;
+    dealId: string;
     commissionRate: number; // in percentage
     status: PaymentStatus;
     paymentDate?: string;
