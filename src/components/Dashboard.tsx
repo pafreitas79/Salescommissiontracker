@@ -6,13 +6,21 @@ import Modal from './ui/Modal';
 import Button from './ui/Button';
 import { generateInvoicePdf } from '../utils/pdfGenerator';
 import { formatCurrency } from '../utils/formatters';
+import Select from './ui/Select';
 
 
 interface DashboardProps {
     salesData: SalesData[];
+    selectedYear: string;
+    onYearChange: (year: string) => void;
+    availableYears: string[];
+    hideInactive: boolean;
+    onHideInactiveChange: (hide: boolean) => void;
 }
 
-const SalespersonCard: React.FC<{ data: SalesData; onShowDetails: (data: SalesData) => void }> = ({ data, onShowDetails }) => {
+const SalespersonCard: React.FC<{ data: SalesData; onShowDetails: (data: SalesData) => void; selectedYear: string }> = ({ data, onShowDetails, selectedYear }) => {
+    const periodLabel = selectedYear === 'all' ? 'All-Time Revenue' : `Revenue (${selectedYear})`;
+
     return (
         <Card>
             <div className="p-6">
@@ -28,8 +36,8 @@ const SalespersonCard: React.FC<{ data: SalesData; onShowDetails: (data: SalesDa
 
                 <div className="mt-6 grid grid-cols-2 gap-4 text-center">
                     <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Revenue (Last 12mo)</p>
-                        <p className="text-lg font-semibold text-gray-800 dark:text-white">{formatCurrency(data.revenueLast12Months)}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{periodLabel}</p>
+                        <p className="text-lg font-semibold text-gray-800 dark:text-white">{formatCurrency(data.totalRevenue)}</p>
                     </div>
                     <div>
                         <p className="text-sm text-gray-500 dark:text-gray-400">Rappel Bonus</p>
@@ -38,10 +46,6 @@ const SalespersonCard: React.FC<{ data: SalesData; onShowDetails: (data: SalesDa
                 </div>
 
                 <div className="mt-6 space-y-3">
-                    <div className="flex justify-between items-center">
-                        <span className="text-gray-600 dark:text-gray-300">All-Time Revenue</span>
-                        <span className="font-semibold text-gray-800 dark:text-white">{formatCurrency(data.totalRevenue)}</span>
-                    </div>
                     <div className="flex justify-between items-center">
                         <span className="text-gray-600 dark:text-gray-300">Total Commission</span>
                         <span className="font-bold text-blue-600 dark:text-blue-400">{formatCurrency(data.totalCommission)}</span>
@@ -70,16 +74,35 @@ const SalespersonCard: React.FC<{ data: SalesData; onShowDetails: (data: SalesDa
 };
 
 
-const Dashboard: React.FC<DashboardProps> = ({ salesData }) => {
+const Dashboard: React.FC<DashboardProps> = ({ salesData, selectedYear, onYearChange, availableYears, hideInactive, onHideInactiveChange }) => {
     const [selectedSalesperson, setSelectedSalesperson] = useState<SalesData | null>(null);
 
     const totalRevenue = salesData.reduce((sum, sp) => sum + sp.totalRevenue, 0);
     const totalCommissions = salesData.reduce((sum, sp) => sum + sp.totalCommission, 0);
     const totalPaid = salesData.reduce((sum, sp) => sum + sp.totalPaid, 0);
+    const periodTitle = selectedYear === 'all' ? 'Dashboard (All Time)' : `Dashboard (${selectedYear})`;
 
     return (
         <div className="space-y-8">
-            <h2 className="text-3xl font-bold text-gray-800 dark:text-white">Dashboard</h2>
+            <div className="flex justify-between items-center flex-wrap gap-4">
+                <h2 className="text-3xl font-bold text-gray-800 dark:text-white">{periodTitle}</h2>
+                <div className="flex items-center space-x-4">
+                    <Select label="Filter by Year" value={selectedYear} onChange={e => onYearChange(e.target.value)} name="year-filter">
+                        <option value="all">All Time</option>
+                        {availableYears.map(year => <option key={year} value={year}>{year}</option>)}
+                    </Select>
+                     <label className="flex items-center space-x-2 pt-6 whitespace-nowrap">
+                        <input
+                          type="checkbox"
+                          checked={hideInactive}
+                          onChange={e => onHideInactiveChange(e.target.checked)}
+                          disabled={selectedYear === 'all'}
+                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
+                        />
+                        <span className="text-sm text-gray-600 dark:text-gray-400">Hide inactive salespeople</span>
+                      </label>
+                </div>
+            </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                  <Card className="bg-gradient-to-br from-blue-500 to-blue-700 text-white p-6">
@@ -114,12 +137,20 @@ const Dashboard: React.FC<DashboardProps> = ({ salesData }) => {
             <h3 className="text-2xl font-bold text-gray-800 dark:text-white mt-10">Salesperson Summary</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {salesData.map(sp => (
-                    <SalespersonCard key={sp.id} data={sp} onShowDetails={setSelectedSalesperson} />
+                    <SalespersonCard key={sp.id} data={sp} onShowDetails={setSelectedSalesperson} selectedYear={selectedYear} />
                 ))}
             </div>
+            {salesData.length === 0 && (
+                <Card>
+                    <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                        <p>No sales data found for the selected period.</p>
+                    </div>
+                </Card>
+            )}
+
 
             {selectedSalesperson && (
-                <Modal isOpen={!!selectedSalesperson} onClose={() => setSelectedSalesperson(null)} title={`${selectedSalesperson.name}'s Details`}>
+                <Modal isOpen={!!selectedSalesperson} onClose={() => setSelectedSalesperson(null)} title={`${selectedSalesperson.name}'s Details for ${selectedYear === 'all' ? 'All Time' : selectedYear}`}>
                     <div className="p-6 space-y-4">
                          <div className="grid grid-cols-2 gap-4">
                             <div className="p-4 bg-gray-100 dark:bg-gray-700 rounded-lg">
@@ -131,7 +162,7 @@ const Dashboard: React.FC<DashboardProps> = ({ salesData }) => {
                                 <p className="text-lg font-bold text-red-500">{formatCurrency(selectedSalesperson.balance)}</p>
                             </div>
                         </div>
-                        <h4 className="font-bold text-lg mt-4">Payment History</h4>
+                        <h4 className="font-bold text-lg mt-4">Payment History for {selectedYear === 'all' ? 'All Time' : selectedYear}</h4>
                         <div className="max-h-64 overflow-y-auto pr-2">
                              <table className="w-full text-left">
                                 <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
@@ -144,7 +175,7 @@ const Dashboard: React.FC<DashboardProps> = ({ salesData }) => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {selectedSalesperson.commissionHistory.map(c => (
+                                    {selectedSalesperson.commissionHistory.length > 0 ? selectedSalesperson.commissionHistory.map(c => (
                                         <tr key={c.id} className="border-b dark:border-gray-700">
                                             <td className="px-4 py-2">{c.entryDate}</td>
                                             <td className="px-4 py-2">{c.dealId}</td>
@@ -152,7 +183,9 @@ const Dashboard: React.FC<DashboardProps> = ({ salesData }) => {
                                             <td className="px-4 py-2">{formatCurrency(c.revenue * (c.commissionRate / 100))}</td>
                                             <td className={`px-4 py-2 font-semibold ${c.status === 'Paid' ? 'text-green-500' : 'text-yellow-500'}`}>{c.status}</td>
                                         </tr>
-                                    ))}
+                                    )) : (
+                                        <tr><td colSpan={5} className="text-center p-4">No commissions in this period.</td></tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
@@ -161,6 +194,7 @@ const Dashboard: React.FC<DashboardProps> = ({ salesData }) => {
                         <Button
                             onClick={() => generateInvoicePdf(selectedSalesperson)}
                             disabled={selectedSalesperson.balance <= 0}
+                            title={selectedSalesperson.balance <= 0 ? "No balance due to generate an invoice" : "Generate Invoice"}
                             className={selectedSalesperson.balance <= 0 ? 'cursor-not-allowed opacity-50' : ''}
                         >
                            <Icon.FileText className="w-5 h-5 mr-2" />

@@ -33,7 +33,6 @@ export interface RappelTier {
 
 export interface SalesData extends Salesperson {
     totalRevenue: number;
-    revenueLast12Months: number;
     baseCommissions: number;
     rappelBonus: number;
     totalCommission: number;

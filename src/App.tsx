@@ -43,6 +43,8 @@ const App: React.FC = () => {
         }
     });
     const [activeTab, setActiveTab] = useState<Tab>('dashboard');
+    const [selectedYear, setSelectedYear] = useState<string>('all');
+    const [hideInactiveSalespeople, setHideInactiveSalespeople] = useState<boolean>(false);
 
     const recalculateAllCommissions = useCallback((
         currentCommissions: Commission[],
@@ -219,10 +221,19 @@ const App: React.FC = () => {
 
     }, [rappelTiers, rappelMethod, recalculateAllCommissions]);
 
+    const availableYears = useMemo(() => {
+        const years = new Set(commissions.map(c => new Date(c.entryDate).getFullYear().toString()));
+        return Array.from(years).sort((a, b) => parseInt(b) - parseInt(a));
+    }, [commissions]);
 
     const salesData = useMemo(() => {
-        return salespeople.map(sp => {
-            const personCommissions = commissions.filter(c => c.salespersonId === sp.id);
+        const periodCommissions = selectedYear === 'all'
+            ? commissions
+            : commissions.filter(c => new Date(c.entryDate).getFullYear().toString() === selectedYear);
+
+        let data = salespeople.map(sp => {
+            const personCommissions = periodCommissions.filter(c => c.salespersonId === sp.id);
+            
             const totalRevenue = personCommissions.reduce((sum, c) => sum + c.revenue, 0);
             const baseCommissions = personCommissions.reduce((sum, c) => sum + (c.revenue * (c.commissionRate / 100)), 0);
             const totalRappelBonus = personCommissions.reduce((sum, c) => sum + (c.rappelBonus || 0), 0);
@@ -231,18 +242,10 @@ const App: React.FC = () => {
             const totalPaid = personCommissions
                 .filter(c => c.status === PaymentStatus.Paid)
                 .reduce((sum, c) => sum + (c.revenue * (c.commissionRate / 100)) + (c.rappelBonus || 0), 0);
-            
-            const revenueLast12Months = personCommissions.filter(c => {
-                 const entryDate = new Date(c.entryDate);
-                 const twelveMonthsAgo = new Date();
-                 twelveMonthsAgo.setFullYear(twelveMonthsAgo.getFullYear() - 1);
-                 return entryDate >= twelveMonthsAgo;
-            }).reduce((sum, c) => sum + c.revenue, 0);
 
             return {
                 ...sp,
                 totalRevenue,
-                revenueLast12Months, // Note: This is for display only, not for calculation.
                 baseCommissions,
                 rappelBonus: totalRappelBonus,
                 totalCommission,
@@ -251,12 +254,26 @@ const App: React.FC = () => {
                 commissionHistory: personCommissions,
             };
         });
-    }, [salespeople, commissions]);
+
+        if (hideInactiveSalespeople && selectedYear !== 'all') {
+            data = data.filter(sp => sp.commissionHistory.length > 0);
+        }
+
+        return data;
+
+    }, [salespeople, commissions, selectedYear, hideInactiveSalespeople]);
 
     const renderContent = () => {
         switch (activeTab) {
             case 'dashboard':
-                return <Dashboard salesData={salesData} />;
+                return <Dashboard 
+                            salesData={salesData} 
+                            selectedYear={selectedYear}
+                            onYearChange={setSelectedYear}
+                            availableYears={availableYears}
+                            hideInactive={hideInactiveSalespeople}
+                            onHideInactiveChange={setHideInactiveSalespeople}
+                        />;
             case 'commissions':
                 return <Commissions 
                             commissions={commissions} 
