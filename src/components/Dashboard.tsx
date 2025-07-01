@@ -1,9 +1,11 @@
-
 import React, { useState } from 'react';
-import { SalesData } from '../types';
+import { SalesData, PaymentStatus } from '../types';
 import { Card } from './ui/Card';
 import { Icon } from './ui/Icon';
 import Modal from './ui/Modal';
+import Button from './ui/Button';
+import { generateInvoicePdf } from '../utils/pdfGenerator';
+
 
 interface DashboardProps {
     salesData: SalesData[];
@@ -153,6 +155,16 @@ const Dashboard: React.FC<DashboardProps> = ({ salesData }) => {
                                 </tbody>
                             </table>
                         </div>
+                    </div>
+                     <div className="p-4 bg-gray-50 dark:bg-gray-700/50 flex justify-end">
+                        <Button
+                            onClick={() => generateInvoicePdf(selectedSalesperson)}
+                            disabled={selectedSalesperson.balance <= 0}
+                            className={selectedSalesperson.balance <= 0 ? 'cursor-not-allowed opacity-50' : ''}
+                        >
+                           <Icon.FileText className="w-5 h-5 mr-2" />
+                           Generate Invoice
+                        </Button>
                     </div>
                 </Modal>
             )}

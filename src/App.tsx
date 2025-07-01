@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Salesperson, Commission, RappelTier, PaymentStatus } from './types';
 import { INITIAL_SALESPEOPLE, INITIAL_COMMISSIONS, INITIAL_RAPPEL_TIERS } from './constants';
 import Dashboard from './components/Dashboard';
@@ -11,10 +11,43 @@ import { Icon } from './components/ui/Icon';
 type Tab = 'dashboard' | 'commissions' | 'salespeople' | 'rappel';
 
 const App: React.FC = () => {
-    const [salespeople, setSalespeople] = useState<Salesperson[]>(INITIAL_SALESPEOPLE);
-    const [commissions, setCommissions] = useState<Commission[]>(INITIAL_COMMISSIONS);
-    const [rappelTiers, setRappelTiers] = useState<RappelTier[]>(INITIAL_RAPPEL_TIERS);
+    const [salespeople, setSalespeople] = useState<Salesperson[]>(() => {
+        try {
+            const saved = localStorage.getItem('salespeople');
+            return saved ? JSON.parse(saved) : INITIAL_SALESPEOPLE;
+        } catch {
+            return INITIAL_SALESPEOPLE;
+        }
+    });
+    const [commissions, setCommissions] = useState<Commission[]>(() => {
+        try {
+            const saved = localStorage.getItem('commissions');
+            return saved ? JSON.parse(saved) : INITIAL_COMMISSIONS;
+        } catch {
+            return INITIAL_COMMISSIONS;
+        }
+    });
+    const [rappelTiers, setRappelTiers] = useState<RappelTier[]>(() => {
+        try {
+            const saved = localStorage.getItem('rappelTiers');
+            return saved ? JSON.parse(saved) : INITIAL_RAPPEL_TIERS;
+        } catch {
+            return INITIAL_RAPPEL_TIERS;
+        }
+    });
     const [activeTab, setActiveTab] = useState<Tab>('dashboard');
+
+    useEffect(() => {
+        localStorage.setItem('salespeople', JSON.stringify(salespeople));
+    }, [salespeople]);
+
+    useEffect(() => {
+        localStorage.setItem('commissions', JSON.stringify(commissions));
+    }, [commissions]);
+
+    useEffect(() => {
+        localStorage.setItem('rappelTiers', JSON.stringify(rappelTiers));
+    }, [rappelTiers]);
 
     const handleAddCommission = (commission: Omit<Commission, 'id'>) => {
         setCommissions(prev => [...prev, { ...commission, id: `comm-${Date.now()}` }]);
@@ -32,12 +65,25 @@ const App: React.FC = () => {
         setSalespeople(prev => [...prev, { ...person, id: `sp-${Date.now()}` }]);
     };
 
+    const handleUpdateSalesperson = (updatedPerson: Salesperson) => {
+        setSalespeople(prev => prev.map(sp => sp.id === updatedPerson.id ? updatedPerson : sp));
+    };
+
     const handleDeleteSalesperson = (salespersonId: string) => {
         if (commissions.some(c => c.salespersonId === salespersonId)) {
             alert('Cannot delete salesperson with existing commissions. Please reassign or delete their commissions first.');
             return;
         }
         setSalespeople(prev => prev.filter(sp => sp.id !== salespersonId));
+    };
+    
+    const handleClearData = () => {
+        if (window.confirm('Are you sure you want to delete all data? This action cannot be undone.')) {
+            localStorage.removeItem('salespeople');
+            localStorage.removeItem('commissions');
+            localStorage.removeItem('rappelTiers');
+            window.location.reload();
+        }
     };
 
 
@@ -101,6 +147,7 @@ const App: React.FC = () => {
                             salespeople={salespeople}
                             commissions={commissions}
                             onAddSalesperson={handleAddSalesperson}
+                            onUpdateSalesperson={handleUpdateSalesperson}
                             onDeleteSalesperson={handleDeleteSalesperson}
                         />;
             case 'rappel':
@@ -113,7 +160,7 @@ const App: React.FC = () => {
     const NavItem: React.FC<{ tab: Tab; label: string; icon: React.ReactNode }> = ({ tab, label, icon }) => (
         <button
             onClick={() => setActiveTab(tab)}
-            className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 ${
+            className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 w-full ${
                 activeTab === tab 
                 ? 'bg-blue-600 text-white shadow-lg' 
                 : 'text-gray-500 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700'
@@ -139,7 +186,14 @@ const App: React.FC = () => {
                         <NavItem tab="rappel" label="Rappel Settings" icon={<Icon.Settings className="w-6 h-6" />} />
                     </div>
                 </div>
-                <div className="hidden lg:block mt-auto">
+                <div className="hidden lg:flex flex-col space-y-2 mt-auto">
+                     <button 
+                        onClick={handleClearData}
+                        className="flex items-center space-x-3 px-4 py-3 rounded-lg w-full text-gray-500 hover:bg-red-100 hover:text-red-700 dark:text-gray-400 dark:hover:bg-red-800/50 dark:hover:text-red-400"
+                    >
+                       <Icon.Trash className="w-6 h-6" />
+                       <span className="font-medium">Clear All Data</span>
+                    </button>
                     <button className="flex items-center space-x-3 px-4 py-3 rounded-lg w-full text-gray-500 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700">
                        <Icon.Logout className="w-6 h-6" />
                        <span className="font-medium">Logout</span>

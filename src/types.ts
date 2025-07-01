@@ -8,6 +8,7 @@ export interface Salesperson {
     id: string;
     name: string;
     email: string;
+    baseCommissionRate: number; // in percentage
 }
 
 export interface Commission {

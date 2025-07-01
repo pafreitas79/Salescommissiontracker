@@ -1,4 +1,3 @@
-
 {
   "name": "sales-commission-tracker",
   "private": true,
@@ -10,6 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "jspdf": "^2.5.1",
+    "jspdf-autotable": "^3.8.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },
