@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Salesperson, Commission, RappelTier, PaymentStatus, RappelCalculationMethod } from './types';
+import { Salesperson, Commission, RappelTier, PaymentStatus, RappelCalculationMethod, ParsedCsvRow } from './types';
 import { INITIAL_RAPPEL_TIERS } from './constants';
 import Dashboard from './components/Dashboard';
 import Commissions from './components/Commissions';
@@ -150,6 +150,75 @@ const App: React.FC = () => {
             window.location.reload();
         }
     };
+    
+    const handleImportData = useCallback((importedData: ParsedCsvRow[]) => {
+        let newSalespeopleCount = 0;
+        let importedCommissionsCount = 0;
+        let failedRowCount = 0;
+
+        // Use functional updates to ensure we have the latest state
+        setSalespeople(currentSalespeople => {
+            const currentSalespeopleCopy = [...currentSalespeople];
+            const emailToSalespersonMap = new Map<string, Salesperson>();
+            currentSalespeopleCopy.forEach(sp => emailToSalespersonMap.set(sp.email.toLowerCase(), sp));
+
+            const commissionsToAdd: Omit<Commission, 'id' | 'rappelBonus'>[] = [];
+
+            for (const row of importedData) {
+                const email = row.salesperson_email?.trim().toLowerCase();
+                const revenue = parseFloat(row.revenue);
+
+                if (!email || isNaN(revenue) || !row.entry_date || !row.deal_id) {
+                    console.error("Skipping invalid CSV row:", row);
+                    failedRowCount++;
+                    continue;
+                }
+
+                let salesperson = emailToSalespersonMap.get(email);
+
+                if (!salesperson) {
+                    const newId = `sp-${Date.now()}-${Math.random()}`;
+                    salesperson = {
+                        id: newId,
+                        name: row.salesperson_name || email,
+                        email: row.salesperson_email,
+                        baseCommissionRate: 30, // Default rate for new imports
+                    };
+                    currentSalespeopleCopy.push(salesperson);
+                    emailToSalespersonMap.set(email, salesperson);
+                    newSalespeopleCount++;
+                }
+
+                commissionsToAdd.push({
+                    salespersonId: salesperson.id,
+                    revenue: revenue,
+                    dealId: row.deal_id,
+                    commissionRate: salesperson.baseCommissionRate,
+                    status: row.status?.toLowerCase() === 'paid' ? PaymentStatus.Paid : PaymentStatus.Unpaid,
+                    paymentDate: row.status?.toLowerCase() === 'paid' ? row.payment_date || new Date().toISOString().split('T')[0] : undefined,
+                    isAdvance: false,
+                    entryDate: row.entry_date,
+                });
+                importedCommissionsCount++;
+            }
+
+            setCommissions(currentCommissions => {
+                const commissionsWithNewIds = commissionsToAdd.map(c => ({
+                    ...c,
+                    id: `comm-${Date.now()}-${Math.random()}`,
+                    rappelBonus: 0
+                }));
+                const combined = [...currentCommissions, ...commissionsWithNewIds];
+                return recalculateAllCommissions(combined, rappelTiers, rappelMethod);
+            });
+            
+            return currentSalespeopleCopy;
+        });
+
+        alert(`Import complete!\n- ${importedCommissionsCount} commissions processed.\n- ${newSalespeopleCount} new salespeople created.\n- ${failedRowCount} rows failed to import.`);
+
+    }, [rappelTiers, rappelMethod, recalculateAllCommissions]);
+
 
     const salesData = useMemo(() => {
         return salespeople.map(sp => {
@@ -194,6 +263,7 @@ const App: React.FC = () => {
                             salespeople={salespeople}
                             onAddCommission={handleAddCommission}
                             onUpdateCommission={handleUpdateCommission}
+                            onImportData={handleImportData}
                         />;
             case 'salespeople':
                 return <SalespeopleManagement 

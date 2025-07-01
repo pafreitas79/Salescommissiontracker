@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Commission, Salesperson, PaymentStatus } from '../types';
+import { Commission, Salesperson, PaymentStatus, ParsedCsvRow } from '../types';
 import { Card } from './ui/Card';
 import Button from './ui/Button';
 import Input from './ui/Input';
@@ -8,12 +8,14 @@ import Modal from './ui/Modal';
 import { Icon } from './ui/Icon';
 import { generateReceiptPdf } from '../utils/pdfGenerator';
 import { formatCurrency } from '../utils/formatters';
+import { CsvImportButton } from './CsvImportButton';
 
 interface CommissionsProps {
     commissions: Commission[];
     salespeople: Salesperson[];
     onAddCommission: (commission: Omit<Commission, 'id' | 'rappelBonus'>) => void;
     onUpdateCommission: (commission: Commission) => void;
+    onImportData: (data: ParsedCsvRow[]) => void;
 }
 
 const CommissionForm: React.FC<{ salespeople: Salesperson[]; onAdd: (data: any) => void; onClose: () => void }> = ({ salespeople, onAdd, onClose }) => {
@@ -59,7 +61,7 @@ const CommissionForm: React.FC<{ salespeople: Salesperson[]; onAdd: (data: any) 
                 <option value="">Select a person</option>
                 {salespeople.map(sp => <option key={sp.id} value={sp.id}>{sp.name}</option>)}
             </Select>
-            <Input label="Revenue Generated" name="revenue" type="number" value={formData.revenue} onChange={handleChange} required />
+            <Input label="Revenue Generated (€)" name="revenue" type="number" value={formData.revenue} onChange={handleChange} required />
             <Input label="Deal ID / Reference" name="dealId" type="text" value={formData.dealId} onChange={handleChange} required placeholder="e.g. INV-12345" />
              <div className="pt-2">
                 <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -75,7 +77,7 @@ const CommissionForm: React.FC<{ salespeople: Salesperson[]; onAdd: (data: any) 
     );
 };
 
-const Commissions: React.FC<CommissionsProps> = ({ commissions, salespeople, onAddCommission, onUpdateCommission }) => {
+const Commissions: React.FC<CommissionsProps> = ({ commissions, salespeople, onAddCommission, onUpdateCommission, onImportData }) => {
     const [filter, setFilter] = useState<PaymentStatus | 'all'>('all');
     const [isModalOpen, setIsModalOpen] = useState(false);
     
@@ -93,12 +95,15 @@ const Commissions: React.FC<CommissionsProps> = ({ commissions, salespeople, onA
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center flex-wrap gap-4">
                 <h2 className="text-3xl font-bold text-gray-800 dark:text-white">Commissions</h2>
-                <Button onClick={() => setIsModalOpen(true)} disabled={salespeople.length === 0} title={salespeople.length === 0 ? "Add a salesperson first" : "Add Commission"}>
-                    <Icon.Plus className="w-5 h-5 mr-2" />
-                    Add Commission
-                </Button>
+                <div className="flex items-center space-x-2">
+                    <CsvImportButton onImport={onImportData} />
+                    <Button onClick={() => setIsModalOpen(true)} disabled={salespeople.length === 0} title={salespeople.length === 0 ? "Add a salesperson first" : "Add Commission"}>
+                        <Icon.Plus className="w-5 h-5 mr-2" />
+                        Add Commission
+                    </Button>
+                </div>
             </div>
 
             <Card>

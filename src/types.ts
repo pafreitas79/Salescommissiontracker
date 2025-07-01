@@ -41,3 +41,13 @@ export interface SalesData extends Salesperson {
     balance: number;
     commissionHistory: Commission[];
 }
+
+export interface ParsedCsvRow {
+    salesperson_email: string;
+    salesperson_name?: string;
+    revenue: string;
+    deal_id: string;
+    entry_date: string; // YYYY-MM-DD
+    status: string; // Paid or Unpaid
+    payment_date?: string; // YYYY-MM-DD
+}
